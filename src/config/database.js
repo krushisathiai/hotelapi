@@ -5,16 +5,28 @@ const { Pool } = pg;
 
 let isPgConnected = false;
 
-const pool = new Pool({
-  host: env.db.host,
-  port: env.db.port,
-  database: env.db.name,
-  user: env.db.user,
-  password: env.db.password,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+const poolConfig = env.db.connectionString
+  ? {
+      connectionString: env.db.connectionString,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    }
+  : {
+      host: env.db.host,
+      port: env.db.port,
+      database: env.db.name,
+      user: env.db.user,
+      password: env.db.password,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    };
+
+const pool = new Pool(poolConfig);
 
 pool.on('error', (err) => {
   console.warn('⚠️ Idle database client warning:', err.message);
@@ -416,8 +428,8 @@ export const testConnection = async () => {
     return true;
   } catch (err) {
     isPgConnected = false;
-    console.log('ℹ️ Running with built-in resilient data engine (PostgreSQL offline or password differs).');
-    return true; // Return true so server continues with high-performance embedded data engine
+    console.log(`ℹ️ PostgreSQL note: ${err.message}. Running with built-in resilient data engine fallback if needed.`);
+    return true; // Return true so server continues
   }
 };
 
