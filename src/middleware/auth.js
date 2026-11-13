@@ -2,10 +2,12 @@ import jwt from 'jsonwebtoken';
 import env from '../config/env.js';
 import { query } from '../config/database.js';
 
-// Verify JWT from HttpOnly cookie
+// Verify JWT from HttpOnly cookie or Authorization: Bearer token header
 export const authenticate = async (req, res, next) => {
   try {
-    const token = req.cookies?.token;
+    const authHeader = req.headers.authorization;
+    const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const token = req.cookies?.token || bearerToken;
 
     if (!token) {
       return res.status(401).json({ success: false, message: 'Authentication required. Please log in.' });

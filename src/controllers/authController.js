@@ -12,8 +12,8 @@ const generateToken = (userId) => {
 const setTokenCookie = (res, token) => {
   res.cookie('token', token, {
     httpOnly: true,
-    secure: env.isProduction,
-    sameSite: env.isProduction ? 'strict' : 'lax',
+    secure: true,
+    sameSite: 'none',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     path: '/',
   });
@@ -92,6 +92,7 @@ export const signup = async (req, res, next) => {
           id: restaurant.id,
           name: restaurant.name,
         },
+        token,
       },
     });
   } catch (err) {
@@ -157,6 +158,7 @@ export const login = async (req, res, next) => {
     await query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
 
     const responseData = {
+      token,
       user: {
         id: user.id,
         fullName: user.full_name,
