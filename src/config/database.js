@@ -63,15 +63,15 @@ const memStore = {
   users: [
     {
       id: 1,
-      full_name: 'Sanjay Deshmukh',
-      email: 'admin@dineflow.com',
+      full_name: 'Rajesh Sharma (Owner)',
+      email: 'owner@dineflow.com',
       phone: '+91 98201 12345',
-      role: 'admin',
+      role: 'owner',
       is_active: true,
     },
     {
       id: 2,
-      full_name: 'Sita Devi',
+      full_name: 'Sita Devi (Billing Manager)',
       email: 'manager@dineflow.com',
       phone: '+91 98202 23456',
       role: 'manager',
@@ -79,6 +79,38 @@ const memStore = {
     },
     {
       id: 3,
+      full_name: 'Anil Kumar (Waiter / Staff)',
+      email: 'waiter@dineflow.com',
+      phone: '+91 98204 45678',
+      role: 'waiter',
+      is_active: true,
+    },
+    {
+      id: 4,
+      full_name: 'Ramesh Chef (Kitchen)',
+      email: 'kitchen@dineflow.com',
+      phone: '+91 98203 34567',
+      role: 'chef',
+      is_active: true,
+    },
+    {
+      id: 5,
+      full_name: 'Demo Owner',
+      email: 'demo@dineflow.com',
+      phone: '+91 98201 99999',
+      role: 'owner',
+      is_active: true,
+    },
+    {
+      id: 6,
+      full_name: 'Sanjay Deshmukh',
+      email: 'admin@dineflow.com',
+      phone: '+91 98201 12345',
+      role: 'owner',
+      is_active: true,
+    },
+    {
+      id: 7,
       full_name: 'Anil Sharma',
       email: 'staff@dineflow.com',
       phone: '+91 98204 45678',
@@ -157,10 +189,11 @@ function executeFallbackQuery(text, params = []) {
 
   // Restaurant membership
   if (lower.includes('from restaurant_members')) {
+    const matchedUser = memStore.users.find(u => u.id === Number(params[0])) || memStore.users[0];
     return {
       rows: [{
         restaurant_id: memStore.restaurant.id,
-        role: 'admin',
+        role: matchedUser ? matchedUser.role : 'owner',
         restaurant_name: memStore.restaurant.name,
       }],
       rowCount: 1,

@@ -13,7 +13,7 @@ const env = {
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   db: {
-    connectionString: process.env.DATABASE_URL || null,
+    connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_RImEDA2Ctw0X@ep-ancient-hat-beg9uy3q-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     name: process.env.DB_NAME || 'dineflow',
