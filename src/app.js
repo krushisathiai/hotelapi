@@ -34,10 +34,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Rate limiting for auth endpoints
+// Rate limiting for auth endpoints (generous for live college demo and testing)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
+  max: 1000,
   message: { success: false, message: 'Too many attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
