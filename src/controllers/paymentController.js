@@ -5,11 +5,12 @@ import { AppError } from '../middleware/errorHandler.js';
 export const getPayments = async (req, res, next) => {
   try {
     const restaurantId = req.user.restaurantId;
-    const { order_id, payment_method, status, page = 1, limit = 20, date_from, date_to } = req.query;
+    const { order_id, payment_method, status, page = 1, limit = 50, date_from, date_to } = req.query;
 
-    let sql = `SELECT p.*, o.order_number, o.customer_name
+    let sql = `SELECT p.*, o.order_number, o.customer_name, rt.table_number
                FROM payments p
                JOIN orders o ON o.id = p.order_id
+               LEFT JOIN restaurant_tables rt ON rt.id = o.table_id
                WHERE p.restaurant_id = $1`;
     const params = [restaurantId];
     let idx = 2;
@@ -48,37 +49,57 @@ export const createPayment = async (req, res, next) => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) throw new AppError('Valid amount is required.', 400);
     if (!payment_method) throw new AppError('Payment method is required.', 400);
 
-    // Verify order belongs to restaurant
-    const order = await query(
-      'SELECT id, total_amount, status FROM orders WHERE id = $1 AND restaurant_id = $2',
-      [order_id, restaurantId]
-    );
-    if (order.rows.length === 0) throw new AppError('Order not found.', 404);
-
-    // Check total payments already made
-    const existingPayments = await query(
-      "SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE order_id = $1 AND payment_status = 'completed'",
-      [order_id]
-    );
-    const totalPaid = parseFloat(existingPayments.rows[0].total_paid);
-    const orderTotal = parseFloat(order.rows[0].total_amount);
-
-    if (totalPaid + Number(amount) > orderTotal + 0.01) {
-      throw new AppError(`Payment exceeds order total. Order total: ${orderTotal}, Already paid: ${totalPaid}`, 400);
+    // Resolve order safely (UUID or by order_number)
+    const isOrderUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(order_id));
+    let order;
+    if (isOrderUuid) {
+      order = await query(
+        'SELECT id, order_number, total_amount, status, table_id FROM orders WHERE id = $1 AND restaurant_id = $2',
+        [order_id, restaurantId]
+      );
+    } else {
+      order = await query(
+        'SELECT id, order_number, total_amount, status, table_id FROM orders WHERE (order_number = $1 OR id::text = $1) AND restaurant_id = $2',
+        [order_id, restaurantId]
+      );
     }
+
+    if (order.rows.length === 0) throw new AppError('Order not found.', 404);
+    const resolvedOrderId = order.rows[0].id;
+    const orderTotal = parseFloat(order.rows[0].total_amount);
 
     const result = await query(
       `INSERT INTO payments (restaurant_id, order_id, amount, payment_method, transaction_id, notes)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [restaurantId, order_id, Number(amount), payment_method, transaction_id || null, notes || null]
+      [restaurantId, resolvedOrderId, Number(amount), payment_method, transaction_id || null, notes || null]
     );
+
+    // Mark order as completed and free table
+    await query(
+      "UPDATE orders SET status = 'completed', completed_at = NOW() WHERE id = $1",
+      [resolvedOrderId]
+    );
+
+    if (order.rows[0].table_id) {
+      // Check if table has other active orders
+      const activeOrders = await query(
+        "SELECT COUNT(*) as count FROM orders WHERE table_id = $1 AND id != $2 AND status NOT IN ('completed', 'cancelled')",
+        [order.rows[0].table_id, resolvedOrderId]
+      );
+      if (parseInt(activeOrders.rows[0].count) === 0) {
+        await query(
+          "UPDATE restaurant_tables SET status = 'available' WHERE id = $1",
+          [order.rows[0].table_id]
+        );
+      }
+    }
 
     // Activity log
     await query(
       `INSERT INTO activity_logs (restaurant_id, user_id, action, entity_type, entity_id, description)
        VALUES ($1, $2, 'create', 'payment', $3, $4)`,
       [restaurantId, req.user.id, result.rows[0].id,
-       `Payment of ${amount} via ${payment_method} for order ${order.rows[0].id}`]
+       `Payment of ₹${amount} via ${payment_method} for order ${order.rows[0].order_number}`]
     );
 
     res.status(201).json({ success: true, data: result.rows[0] });

@@ -27,9 +27,14 @@ export const getStats = async (req, res, next) => {
       "SELECT COUNT(*) as count FROM restaurant_tables WHERE restaurant_id = $1 AND is_active = true", [restaurantId]
     );
 
+    // Occupied tables
+    const occupiedTables = await query(
+      "SELECT COUNT(*) as count FROM restaurant_tables WHERE restaurant_id = $1 AND status = 'occupied'", [restaurantId]
+    );
+
     // Pending orders
     const pendingOrders = await query(
-      "SELECT COUNT(*) as count FROM orders WHERE restaurant_id = $1 AND status IN ('pending', 'confirmed', 'preparing')",
+      "SELECT COUNT(*) as count FROM orders WHERE restaurant_id = $1 AND status IN ('pending', 'confirmed', 'preparing', 'in_preparation')",
       [restaurantId]
     );
 
@@ -46,6 +51,7 @@ export const getStats = async (req, res, next) => {
         todayRevenue: parseFloat(todayRevenue.rows[0].total),
         totalMenuItems: parseInt(totalMenuItems.rows[0].count),
         activeTables: parseInt(activeTables.rows[0].count),
+        occupiedTables: parseInt(occupiedTables.rows[0].count),
         pendingOrders: parseInt(pendingOrders.rows[0].count),
         completedToday: parseInt(completedToday.rows[0].count),
       },
