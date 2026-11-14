@@ -301,7 +301,66 @@ function executeFallbackQuery(text, params = []) {
     return { rows: memStore.payments, rowCount: memStore.payments.length };
   }
 
-  // Inserts / Updates / Deletes
+  // Inserts / Updates / Deletes with real in-memory state mutation
+  if (lower.startsWith('insert into orders')) {
+    const newOrd = {
+      id: `ord_${Date.now()}`,
+      order_number: params[1] || `ORD-${Date.now()}`,
+      table_id: params[2] || 1,
+      order_type: params[3] || 'dine-in',
+      subtotal: params[4] || 0,
+      tax_amount: params[5] || 0,
+      discount_amount: params[6] || 0,
+      total_amount: params[9] || 0,
+      customer_name: params[10] || 'Guest',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+    memStore.orders.unshift(newOrd);
+    return { rows: [newOrd], rowCount: 1 };
+  }
+
+  if (lower.startsWith('update orders set status')) {
+    const newStatus = params[0];
+    const targetId = String(params[2] || params[1]);
+    const found = memStore.orders.find(o => String(o.id) === targetId || o.order_number === targetId);
+    if (found) {
+      found.status = newStatus;
+      if (newStatus === 'completed') found.completed_at = new Date().toISOString();
+      return { rows: [found], rowCount: 1 };
+    }
+    return { rows: [{ id: targetId, status: newStatus }], rowCount: 1 };
+  }
+
+  if (lower.startsWith('update restaurant_tables set status')) {
+    const newStatus = params[0];
+    const targetId = String(params[1]);
+    const found = memStore.tables.find(t => String(t.id) === targetId || t.table_number === targetId || t.number === targetId);
+    if (found) {
+      found.status = newStatus;
+      return { rows: [found], rowCount: 1 };
+    }
+    return { rows: [{ id: targetId, status: newStatus }], rowCount: 1 };
+  }
+
+  if (lower.startsWith('insert into payments')) {
+    const newPay = {
+      id: Date.now(),
+      order_id: params[1],
+      amount: params[2],
+      payment_method: params[3],
+      payment_status: 'completed',
+      paid_at: new Date().toISOString(),
+    };
+    memStore.payments.unshift(newPay);
+    const ord = memStore.orders.find(o => String(o.id) === String(params[1]) || o.order_number === String(params[1]));
+    if (ord) {
+      ord.status = 'completed';
+      ord.completed_at = new Date().toISOString();
+    }
+    return { rows: [newPay], rowCount: 1 };
+  }
+
   if (lower.startsWith('insert into') || lower.startsWith('update') || lower.startsWith('delete')) {
     return { rows: [{ id: Date.now(), success: true }], rowCount: 1 };
   }
